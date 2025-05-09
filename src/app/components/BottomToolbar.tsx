@@ -15,9 +15,13 @@ interface BottomToolbarProps {
   setIsAudioPlaybackEnabled: (val: boolean) => void;
   codec: string;
   onCodecChange: (newCodec: string) => void;
+  isDebugMode: boolean | string;
+  pushToTalk: boolean;
 }
 
 function BottomToolbar({
+  pushToTalk,
+  isDebugMode,
   sessionStatus,
   onToggleConnection,
   isPTTActive,
@@ -67,7 +71,7 @@ function BottomToolbar({
       >
         {getConnectionButtonLabel()}
       </button>
-
+      {pushToTalk && (
       <div className="flex flex-row items-center gap-2">
         <input
           id="push-to-talk"
@@ -98,50 +102,54 @@ function BottomToolbar({
           Talk
         </button>
       </div>
+      )}
+      {isDebugMode && (
+        <>
+          <div className="flex flex-row items-center gap-1">
+            <input
+              id="audio-playback"
+              type="checkbox"
+              checked={isAudioPlaybackEnabled}
+              onChange={(e) => setIsAudioPlaybackEnabled(e.target.checked)}
+              disabled={!isConnected}
+              className="w-4 h-4"
+            />
+            <label
+              htmlFor="audio-playback"
+              className="flex items-center cursor-pointer"
+            >
+              Audio playback
+            </label>
+          </div>
 
-      <div className="flex flex-row items-center gap-1">
-        <input
-          id="audio-playback"
-          type="checkbox"
-          checked={isAudioPlaybackEnabled}
-          onChange={(e) => setIsAudioPlaybackEnabled(e.target.checked)}
-          disabled={!isConnected}
-          className="w-4 h-4"
-        />
-        <label
-          htmlFor="audio-playback"
-          className="flex items-center cursor-pointer"
-        >
-          Audio playback
-        </label>
-      </div>
+          <div className="flex flex-row items-center gap-2">
+            <input
+              id="logs"
+              type="checkbox"
+              checked={isEventsPaneExpanded}
+              onChange={(e) => setIsEventsPaneExpanded(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="logs" className="flex items-center cursor-pointer">
+              Logs
+            </label>
+          </div>
 
-      <div className="flex flex-row items-center gap-2">
-        <input
-          id="logs"
-          type="checkbox"
-          checked={isEventsPaneExpanded}
-          onChange={(e) => setIsEventsPaneExpanded(e.target.checked)}
-          className="w-4 h-4"
-        />
-        <label htmlFor="logs" className="flex items-center cursor-pointer">
-          Logs
-        </label>
-      </div>
-
-      <div className="flex flex-row items-center gap-2">
-        <div>Codec:</div>
-        <select
-          id="codec-select"
-          value={codec}
-          onChange={handleCodecChange}
-          className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none cursor-pointer"
-        >
-          <option value="opus">Opus (48 kHz)</option>
-          <option value="pcmu">PCMU (8 kHz)</option>
-          <option value="pcma">PCMA (8 kHz)</option>
-        </select>
-      </div>
+          <div className="flex flex-row items-center gap-2">
+            <div>Codec:</div>
+            <select
+              id="codec-select"
+              value={codec}
+              onChange={handleCodecChange}
+              className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none cursor-pointer"
+            >
+              <option value="opus">Opus (48 kHz)</option>
+              <option value="pcmu">PCMU (8 kHz)</option>
+              <option value="pcma">PCMA (8 kHz)</option>
+            </select>
+          </div>
+        </>
+      )}
     </div>
   );
 }

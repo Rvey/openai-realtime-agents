@@ -18,6 +18,7 @@ import { AgentConfig, SessionStatus } from "@/app/types";
 import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { useEvent } from "@/app/contexts/EventContext";
 import { useHandleServerEvent } from "./hooks/useHandleServerEvent";
+import { useFunctionCalling } from "@/app/contexts/FunctionCallingContext";
 
 // Utilities
 import { createRealtimeConnection } from "./lib/realtimeConnection";
@@ -29,10 +30,12 @@ import useAudioDownload from "./hooks/useAudioDownload";
 
 function CocaApp() {
   const searchParams = useSearchParams();
-
   // Use urlCodec directly from URL search params (default: "opus")
   const urlCodec = searchParams.get("codec") || "opus";
-
+  const isDebugMode = searchParams.get("debug") === "true";
+  const pushToTalk = searchParams.get("pushToTalk") === "true";
+  const textMessageAllowed = searchParams.get("textMessageAllowed") !== "true";
+  const isTranscriptAllowed = searchParams.get("transcriptAllowed") !== "true";
   const { transcriptItems, addTranscriptMessage, addTranscriptBreadcrumb } =
     useTranscript();
   const { logClientEvent, logServerEvent } = useEvent();
@@ -88,6 +91,7 @@ function CocaApp() {
     setSelectedAgentName,
     setIsOutputAudioBufferActive,
   });
+  const { addFunction, functions } = useFunctionCalling();
 
   useEffect(() => {
     let finalAgentConfig = searchParams.get("agentConfig");
@@ -109,6 +113,9 @@ function CocaApp() {
   useEffect(() => {
     if (selectedAgentName && sessionStatus === "DISCONNECTED") {
       connectToRealtime();
+
+      // Example: Adding a function to the context when connecting to realtime
+      addFunction("exampleFunction", { param1: "value1", param2: "value2" });
     }
   }, [selectedAgentName]);
 
@@ -256,7 +263,7 @@ function CocaApp() {
 
     const instructions = currentAgent?.instructions || "";
     const tools = currentAgent?.tools || [];
-        
+
     const sessionUpdateEvent = {
       type: "session.update",
       session: {
@@ -438,8 +445,25 @@ function CocaApp() {
 
   const agentSetKey = searchParams.get("agentConfig") || "default";
 
+  const challengeStarted =
+    functions.find((func) => func.name === "track_challenge_started")?.arguments
+      ?.isChallengeStarted || false;
+  const languageSelected =
+    functions.find((func) => func.name === "track_selected_language")?.arguments
+      ?.language || "en";
+  const track_participate_score =
+    functions.find((func) => func.name === "track_participate_score")?.arguments
+      ?.score || 0;
+
+  console.log({
+    languageSelected,
+    functions,
+    challengeStarted,
+    track_participate_score,
+  });
   return (
-    <div className="text-base flex flex-col h-screen bg-gray-100 text-gray-800 relative">
+    <div className={`text-base flex flex-col h-screen ${challengeStarted ? 'bg-red-700' : 'bg-white'} text-gray-800 relative`}>
+      {challengeStarted}
       <div className="p-5 text-lg font-semibold flex justify-between items-center">
         <div
           className="flex items-center cursor-pointer"
@@ -523,6 +547,8 @@ function CocaApp() {
 
       <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
         <Transcript
+          isTranscriptAllowed={isTranscriptAllowed}
+          textMessageAllowed={textMessageAllowed}
           userText={userText}
           setUserText={setUserText}
           onSendMessage={handleSendTextMessage}
@@ -532,11 +558,12 @@ function CocaApp() {
             dcRef.current?.readyState === "open"
           }
         />
-
-        <Events isExpanded={isEventsPaneExpanded} />
+        {isDebugMode && <Events isExpanded={isEventsPaneExpanded} />}
       </div>
 
       <BottomToolbar
+        pushToTalk={pushToTalk}
+        isDebugMode={isDebugMode}
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
         isPTTActive={isPTTActive}

@@ -10,6 +10,7 @@ import {
 import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { useEvent } from "@/app/contexts/EventContext";
 import { runGuardrailClassifier } from "@/app/lib/callOai";
+import { useFunctionCalling } from "../contexts/FunctionCallingContext";
 
 export interface UseHandleServerEventParams {
   setSessionStatus: (status: SessionStatus) => void;
@@ -38,6 +39,7 @@ export function useHandleServerEvent({
   } = useTranscript();
 
   const { logServerEvent } = useEvent();
+  const { addFunction , updateFunctionArgs , functions} = useFunctionCalling();
 
   const assistantDeltasRef = useRef<{ [itemId: string]: string }>({});
 
@@ -79,6 +81,7 @@ export function useHandleServerEvent({
 
     addTranscriptBreadcrumb(`function call: ${functionCallParams.name}`, args);
 
+    console.warn(functionCallParams.name, args);
     if (currentAgent?.toolLogic?.[functionCallParams.name]) {
       const fn = currentAgent.toolLogic[functionCallParams.name];
       const fnResult = await fn(args, transcriptItems);
@@ -141,6 +144,10 @@ export function useHandleServerEvent({
 
   const handleServerEvent = (serverEvent: ServerEvent) => {
     logServerEvent(serverEvent);
+
+
+
+
 
     switch (serverEvent.type) {
       case "session.created": {
@@ -234,36 +241,12 @@ export function useHandleServerEvent({
                 call_id: outputItem.call_id,
                 arguments: outputItem.arguments,
               });
-            }
-            if (outputItem.name === "track_selected_language") {
-              const selectedLanguage = JSON.parse(outputItem.arguments);
-              if (selectedLanguage.language) {
-                sendClientEvent({
-                  type: "session.update",
-                  session: {
-                    id: serverEvent.session?.id,
-                    input_audio_transcription: {
-                      model: "gpt-4o-transcribe",
-                      language: selectedLanguage.language || "en",
-                      prompt:
-                        "You will receive a voice message as answer of question in a challenge game. the audio will be always in " + selectedLanguage.language +" language. you should transcribe the audio to text and send it back to the server.",
-                    },
-                  },
-                });
-                addTranscriptBreadcrumb(
-                  `session.updated reason : switch transcript language to selected language`,
-                  selectedLanguage.language
-                );
+
+              if (functions.some((f) => f.name === outputItem.name)) {
+                updateFunctionArgs(outputItem.name, JSON.parse(outputItem.arguments));
+              } else {
+                addFunction(outputItem.name, JSON.parse(outputItem.arguments));
               }
-            }
-            if (
-              outputItem.type === "message" &&
-              outputItem.role === "assistant"
-            ) {
-              const itemId = outputItem.id;
-              const text = outputItem.content[0].transcript;
-              // Final guardrail for this message
-              processGuardrail(itemId, text);
             }
           });
         }
