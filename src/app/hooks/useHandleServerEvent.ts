@@ -242,6 +242,26 @@ export function useHandleServerEvent({
                 arguments: outputItem.arguments,
               });
 
+              if (outputItem.name === "track_selected_language") {
+                const selectedLanguage = JSON.parse(outputItem.arguments);
+
+                const sessionUpdateEvent = {
+                  type: "session.update",
+                  session: {
+                    modalities: ["text", "audio"],
+                    voice: "verse",
+                    input_audio_transcription: {
+                      model: "gpt-4o-transcribe",
+                      language: selectedLanguage.language,
+                      prompt:
+                        "You will receive a voice message as answer of question in a challenge game. the audio will be always in "+ selectedLanguage.language + " language. you should transcribe the audio to text and send it back to the server.",
+                    },
+                  },
+                };
+            
+                sendClientEvent(sessionUpdateEvent);
+              }
+
               if (functions.some((f) => f.name === outputItem.name)) {
                 updateFunctionArgs(outputItem.name, JSON.parse(outputItem.arguments));
               } else {

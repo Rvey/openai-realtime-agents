@@ -14,13 +14,13 @@ export interface TranscriptProps {
   onSendMessage: () => void;
   canSend: boolean;
   downloadRecording: () => void;
-  textMessageAllowed: boolean | string;
-  isTranscriptAllowed: boolean | string;
+  isTranscriptAllowed?: boolean | string;
+  isTextAllowed?: boolean | string;
 }
 
 function Transcript({
+  isTextAllowed,
   userText,
-  textMessageAllowed,
   isTranscriptAllowed,
   setUserText,
   onSendMessage,
@@ -220,7 +220,7 @@ function Transcript({
           </>
         )}
       </div>
-      {textMessageAllowed && (
+      {isTextAllowed && (
         <div className="p-4 flex items-center gap-x-2 flex-shrink-0 border-t border-gray-200">
           <input
             ref={inputRef}

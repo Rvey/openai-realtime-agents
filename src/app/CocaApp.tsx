@@ -34,7 +34,6 @@ function CocaApp() {
   const urlCodec = searchParams.get("codec") || "opus";
   const isDebugMode = searchParams.get("debug") === "true";
   const pushToTalk = searchParams.get("pushToTalk") === "true";
-  const textMessageAllowed = searchParams.get("textMessageAllowed") !== "true";
   const isTranscriptAllowed = searchParams.get("transcriptAllowed") !== "true";
   const { transcriptItems, addTranscriptMessage, addTranscriptBreadcrumb } =
     useTranscript();
@@ -62,6 +61,9 @@ function CocaApp() {
 
   const [isOutputAudioBufferActive, setIsOutputAudioBufferActive] =
     useState<boolean>(false);
+
+  const [lastAssistantMessage, setLastAssistantMessage] = useState<string>("");
+  const [lastUserMessage, setLastUserMessage] = useState<string>("");
 
   // Initialize the recording hook.
   const { startRecording, stopRecording, downloadRecording } =
@@ -142,6 +144,31 @@ function CocaApp() {
     }
   }, [isPTTActive]);
 
+  useEffect(() => {
+    const mostRecentAssistantMessage = [...transcriptItems]
+      .reverse()
+      .find((item) => item.role === "assistant");
+
+    if (mostRecentAssistantMessage) {
+      setLastAssistantMessage(mostRecentAssistantMessage.title || "");
+    }
+    const mostRecentUserMessage = [...transcriptItems]
+      .reverse()
+      .find((item) => item.role === "user");
+    if (mostRecentUserMessage) {
+      setLastUserMessage(mostRecentUserMessage.title || "");
+    }
+  }, [transcriptItems]);
+
+  // console.table({
+  //   lastAssistantMessage,
+  //   lastUserMessage,
+  //   isPTTUserSpeaking,
+  //   isPTTActive,
+  //   isOutputAudioBufferActive,
+  //   sessionStatus,
+  //   audioElementRef: audioElementRef.current,
+  // });
   const fetchEphemeralKey = async (): Promise<string | null> => {
     logClientEvent({ url: "/session" }, "fetch_session_token_request");
     const tokenResponse = await fetch("/api/session");
@@ -235,6 +262,8 @@ function CocaApp() {
       },
       "(simulated user text message)"
     );
+    setLastUserMessage(text);
+
     sendClientEvent(
       { type: "response.create" },
       "(trigger response after simulated user text message)"
@@ -329,6 +358,7 @@ function CocaApp() {
       },
       "(send user text message)"
     );
+    setLastUserMessage(userText.trim());
     setUserText("");
 
     sendClientEvent({ type: "response.create" }, "(trigger response)");
@@ -455,12 +485,6 @@ function CocaApp() {
     functions.find((func) => func.name === "track_participate_score")?.arguments
       ?.score || 0;
 
-  console.log({
-    languageSelected,
-    functions,
-    challengeStarted,
-    track_participate_score,
-  });
   return (
     <div
       className={`text-base flex flex-col h-screen ${
@@ -552,31 +576,44 @@ function CocaApp() {
             )}
           </div>
         )}
-        <div className={`${sessionStatus === "CONNECTED" ? "bg-green-500" : "bg-red-500"} size-400 rounded-full w-3 h-3`}>
+        <div className="flex items-center gap-5 bg-black p-2 rounded-md text-white">
+          <div className="text-sm text-white">
+            Score : {track_participate_score}
+          </div>
+        </div>
+        <div className="flex items-center gap-5 bg-black p-2 rounded-md text-white">
+          <div className="text-sm text-white">{languageSelected}</div>
+          <div
+            className={`${
+              sessionStatus === "CONNECTED" ? "bg-green-500" : "bg-red-500"
+            } size-400 rounded-full w-3 h-3`}
+          ></div>
         </div>
       </div>
-
-      <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
-        {isDebugMode && (
-          <Transcript
-            isTranscriptAllowed={isTranscriptAllowed}
-            textMessageAllowed={textMessageAllowed}
-            userText={userText}
-            setUserText={setUserText}
-            onSendMessage={handleSendTextMessage}
-            downloadRecording={downloadRecording}
-            canSend={
-              sessionStatus === "CONNECTED" &&
-              dcRef.current?.readyState === "open"
-            }
-          />
-        )}
-        {isDebugMode && <Events isExpanded={isEventsPaneExpanded} />}
+      <div className="flex flex-col gap-2 px-2 w-full max-w-2xl mx-auto">
+        <div className="p-4 rounded-md border h-[200px] w-full">
+          {lastAssistantMessage}
+        </div>
+        <div className="p-4 rounded-md border h-[200px]">{lastUserMessage}</div>
       </div>
-
+      <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
+        <Transcript
+          isTextAllowed={false}
+          isTranscriptAllowed={true}
+          userText={userText}
+          setUserText={setUserText}
+          onSendMessage={handleSendTextMessage}
+          downloadRecording={downloadRecording}
+          canSend={
+            sessionStatus === "CONNECTED" &&
+            dcRef.current?.readyState === "open"
+          }
+        />
+        {true && <Events isExpanded={isEventsPaneExpanded} />}
+      </div>
       <BottomToolbar
         pushToTalk={pushToTalk}
-        isDebugMode={isDebugMode}
+        isDebugMode={true}
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
         isPTTActive={isPTTActive}

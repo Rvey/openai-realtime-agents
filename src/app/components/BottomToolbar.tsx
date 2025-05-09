@@ -15,8 +15,8 @@ interface BottomToolbarProps {
   setIsAudioPlaybackEnabled: (val: boolean) => void;
   codec: string;
   onCodecChange: (newCodec: string) => void;
-  isDebugMode: boolean | string;
-  pushToTalk: boolean;
+  isDebugMode?: boolean | string;
+  pushToTalk?: boolean;
 }
 
 function BottomToolbar({
