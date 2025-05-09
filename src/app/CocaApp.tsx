@@ -64,11 +64,11 @@ function CocaApp() {
 
   const [lastAssistantMessage, setLastAssistantMessage] = useState<string>("");
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
-
+  const [isChallengeStarted, setIsChallengeStarted] = useState<boolean>(false);
   // Initialize the recording hook.
   const { startRecording, stopRecording, downloadRecording } =
     useAudioDownload();
-
+  const [isTheUserWon, setIsTheUserWon] = useState<boolean>(false);
   const sendClientEvent = (eventObj: any, eventNameSuffix = "") => {
     if (dcRef.current && dcRef.current.readyState === "open") {
       logClientEvent(eventObj, eventNameSuffix);
@@ -484,11 +484,33 @@ function CocaApp() {
   const track_participate_score =
     functions.find((func) => func.name === "track_participate_score")?.arguments
       ?.score || 0;
+  const challenge_result_score =
+    functions.find((func) => func.name === "challenge_result")?.arguments
+      ?.score || 0;
+  const challenge_result_status = functions.find(
+    (func) => func.name === "challenge_result"
+  )?.arguments?.status;
+
+  useEffect(() => {
+    if (challengeStarted) {
+      setIsChallengeStarted(true);
+    } else {
+      setIsChallengeStarted(false);
+    }
+  }, [challengeStarted]);
+
+  useEffect(() => {
+    if (track_participate_score === 5) {
+      setIsTheUserWon(false);
+    }
+  }, [track_participate_score]);
+
+  console.log({ challenge_result_score, challenge_result_status });
 
   return (
     <div
-      className={`text-base flex flex-col h-screen ${
-        challengeStarted ? "bg-red-200" : "bg-white"
+      className={`text-base flex flex-col w-screen h-screen bg-no-repeat bg-cover bg-center ${
+        isChallengeStarted ? "bg-[url(/animated-coca.gif)]" : "bg-white"
       } text-gray-800 relative`}
     >
       <div className="p-5 text-lg font-semibold flex justify-between items-start">
@@ -506,7 +528,10 @@ function CocaApp() {
             />
           </div>
           <div>
-            Yes or No <span className="text-gray-500">Challenge</span>
+            Yes or No{" "}
+            <span className="text-gray-200">
+              Challenge {isTheUserWon && "winner winner"}
+            </span>
           </div>
         </div>
         {isDebugMode && (
@@ -576,11 +601,13 @@ function CocaApp() {
             )}
           </div>
         )}
-        <div className="flex items-center gap-5 bg-black p-2 rounded-md text-white">
-          <div className="text-sm text-white">
-            Score : {track_participate_score}
+        {isChallengeStarted && (
+          <div className="flex items-center gap-5 bg-black p-2 rounded-md text-white">
+            <div className="text-sm text-white">
+              Score : {track_participate_score}
+            </div>
           </div>
-        </div>
+        )}
         <div className="flex items-center gap-5 bg-black p-2 rounded-md text-white">
           <div className="text-sm text-white">{languageSelected}</div>
           <div
@@ -591,29 +618,34 @@ function CocaApp() {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2 w-full max-w-2xl mx-auto">
-        <div className="p-4 rounded-md border h-[200px] w-full">
+        <div className="p-4 rounded-md border border-gray-100  h-[200px] w-full text-center bg-white/30 backdrop-blur-none">
           {lastAssistantMessage}
         </div>
-        <div className="p-4 rounded-md border h-[200px]">{lastUserMessage}</div>
+        <div className="p-4 rounded-md border h-[200px] text-center border-gray-100 bg-white/30 backdrop-blur-none">
+          {lastUserMessage}
+        </div>
       </div>
-      <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
-        <Transcript
-          isTextAllowed={false}
-          isTranscriptAllowed={true}
-          userText={userText}
-          setUserText={setUserText}
-          onSendMessage={handleSendTextMessage}
-          downloadRecording={downloadRecording}
-          canSend={
-            sessionStatus === "CONNECTED" &&
-            dcRef.current?.readyState === "open"
-          }
-        />
-        {true && <Events isExpanded={isEventsPaneExpanded} />}
-      </div>
+
+      {false && (
+        <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
+          <Transcript
+            isTextAllowed={false}
+            isTranscriptAllowed={false}
+            userText={userText}
+            setUserText={setUserText}
+            onSendMessage={handleSendTextMessage}
+            downloadRecording={downloadRecording}
+            canSend={
+              sessionStatus === "CONNECTED" &&
+              dcRef.current?.readyState === "open"
+            }
+          />
+          <Events isExpanded={isEventsPaneExpanded} />
+        </div>
+      )}
       <BottomToolbar
         pushToTalk={pushToTalk}
-        isDebugMode={true}
+        isDebugMode={false}
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
         isPTTActive={isPTTActive}
