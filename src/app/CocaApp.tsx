@@ -34,7 +34,6 @@ function CocaApp() {
   const urlCodec = searchParams.get("codec") || "opus";
   const isDebugMode = searchParams.get("debug") === "true";
   const pushToTalk = searchParams.get("pushToTalk") === "true";
-  const isTranscriptAllowed = searchParams.get("transcriptAllowed") !== "true";
   const { transcriptItems, addTranscriptMessage, addTranscriptBreadcrumb } =
     useTranscript();
   const { logClientEvent, logServerEvent } = useEvent();
@@ -62,13 +61,20 @@ function CocaApp() {
   const [isOutputAudioBufferActive, setIsOutputAudioBufferActive] =
     useState<boolean>(false);
 
+
+    // const audioElement = document.querySelector('audio'); // Select the audio element
+    // if (audioElement) {
+    //   const currentVolume = audioElementRef.volume; // Get the current volume
+      console.log('Current volume:', audioElementRef.current?.srcObject);
+    // }
+
   const [lastAssistantMessage, setLastAssistantMessage] = useState<string>("");
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
   const [isChallengeStarted, setIsChallengeStarted] = useState<boolean>(false);
   // Initialize the recording hook.
   const { startRecording, stopRecording, downloadRecording } =
     useAudioDownload();
-  const [isTheUserWon, setIsTheUserWon] = useState<boolean>(false);
+  const [challengeResult, setChallengeResult] = useState<string>("");
   const sendClientEvent = (eventObj: any, eventNameSuffix = "") => {
     if (dcRef.current && dcRef.current.readyState === "open") {
       logClientEvent(eventObj, eventNameSuffix);
@@ -160,15 +166,6 @@ function CocaApp() {
     }
   }, [transcriptItems]);
 
-  // console.table({
-  //   lastAssistantMessage,
-  //   lastUserMessage,
-  //   isPTTUserSpeaking,
-  //   isPTTActive,
-  //   isOutputAudioBufferActive,
-  //   sessionStatus,
-  //   audioElementRef: audioElementRef.current,
-  // });
   const fetchEphemeralKey = async (): Promise<string | null> => {
     logClientEvent({ url: "/session" }, "fetch_session_token_request");
     const tokenResponse = await fetch("/api/session");
@@ -220,7 +217,6 @@ function CocaApp() {
       dc.addEventListener("message", (e: MessageEvent) => {
         handleServerEventRef.current(JSON.parse(e.data));
       });
-
       setDataChannel(dc);
     } catch (err) {
       console.error("Error connecting to realtime:", err);
@@ -465,6 +461,8 @@ function CocaApp() {
       // The remote audio stream from the audio element.
       const remoteStream = audioElementRef.current.srcObject as MediaStream;
       startRecording(remoteStream);
+
+      console.log('speaking ....')
     }
 
     // Clean up on unmount or when sessionStatus is updated.
@@ -500,18 +498,47 @@ function CocaApp() {
   }, [challengeStarted]);
 
   useEffect(() => {
-    if (track_participate_score === 5) {
-      setIsTheUserWon(false);
+    if (
+      challenge_result_score === 5 &&
+      challenge_result_status === "complete"
+    ) {
+      setChallengeResult("complete");
+      // setTimeout(() => {
+      //   disconnectFromRealtime();
+      //   setSessionStatus("DISCONNECTED");
+      //   setIsPTTUserSpeaking(false);
+      //   setIsChallengeStarted(false);
+      //   setIsTheUserWon(true);
+      //   setSelectedAgentName("default");
+      //   setSelectedAgentConfigSet(allAgentSets["default"]);
+      //   const url = new URL(window.location.toString());
+      //   url.searchParams.set("agentConfig", "default");
+      //   url.searchParams.set("codec", "opus");
+      //   window.location.replace(url.toString());
+      //   window.location.reload();
+      // }
+      // , 4000);
+    } else if (
+      challenge_result_status === "failed" &&
+      challenge_result_score < 5
+    ) {
+      setChallengeResult("failed");
     }
-  }, [track_participate_score]);
+  }, [challenge_result_score, challenge_result_status]);
+  
 
-  console.log({ challenge_result_score, challenge_result_status });
+  const backgroundClass =
+    challengeResult === "complete"
+      ? "bg-[url(/coca_winner.gif)]"
+      : challengeResult === "failed"
+      ? "bg-[url(/coca_loser.gif)]"
+      : isChallengeStarted
+      ? "bg-[url(/animated-coca.gif)]"
+      : "bg-white";
 
   return (
     <div
-      className={`text-base flex flex-col w-screen h-screen bg-no-repeat bg-cover bg-center ${
-        isChallengeStarted ? "bg-[url(/animated-coca.gif)]" : "bg-white"
-      } text-gray-800 relative`}
+      className={`text-base flex flex-col w-screen h-screen bg-no-repeat bg-cover bg-center ${backgroundClass} text-gray-800 relative`}
     >
       <div className="p-5 text-lg font-semibold flex justify-between items-start">
         <div
@@ -527,12 +554,7 @@ function CocaApp() {
               className="mr-2"
             />
           </div>
-          <div>
-            Yes or No{" "}
-            <span className="text-gray-200">
-              Challenge {isTheUserWon && "winner winner"}
-            </span>
-          </div>
+          <div>Yes or No </div>
         </div>
         {isDebugMode && (
           <div className="flex items-center">
@@ -618,6 +640,7 @@ function CocaApp() {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2 w-full max-w-2xl mx-auto">
+
         <div className="p-4 rounded-md border border-gray-100  h-[200px] w-full text-center bg-white/30 backdrop-blur-none">
           {lastAssistantMessage}
         </div>
